@@ -11,6 +11,22 @@ library(tidyverse)
 library(readxl)
 ```
 
+## Problem 1
+
+## import data
+```{r}
+subway_df = 
+  read_csv("./data/NYC_Transit_Subway_Entrance_And_Exit_Data.csv", col_types = cols(Route8 = "c", Route9 = "c", Route10 = "c", Route11 = "c")) |> 
+  janitor::clean_names() |> 
+  select(
+    line, station_name, station_latitude, station_longitude, 
+    starts_with("route"), entry, exit_only, vending, entrance_type, 
+    ada) |> 
+  mutate(entry = ifelse(entry == "YES", TRUE, FALSE))
+print(subway_df)
+```
+
+
 ## Problem 2
 
 ## date cleaning for Mr TW
@@ -65,7 +81,97 @@ The total number of cigarette butts collected by Gwynnda in June of 2022 is 1812
 
 ## Problem 3
 
+## import dataset
+
+```{r}
+bakers_df = 
+  read_csv("./gbb_datasets/bakers.csv", na = c("NA","",".")) |>
+  janitor::clean_names() |>
+  mutate(series = as.character(series)) |>
+  mutate(name = word(baker_name,1))
+```
+I import the data through relative path, and clean the missing data. Then use janitor::clean_names() to clean up variable names. Then, I convert series variable into character, and extract first name of the backers to match with the names in other datasets.  
 
 
+```{r}
+bakes_df = 
+  read_csv("./gbb_datasets/bakes.csv", na = c("NA","",".")) |>
+  janitor::clean_names() |>
+  mutate(baker = str_replace_all(baker, '"',"")) |>
+  relocate(baker) |>
+  rename(name = baker) |>
+  mutate(series = as.character(series)) |>
+  mutate(episode = as.character(episode)) |>
+  arrange(name)
+```
+I import the data through relative path, and clean the missing data. Then use janitor::clean_names() to clean up variable names. Then, I convert series and episode variables into character. I rename "bakers" to "name" to match with the names in other datasets. I notice that there are "" in baker's name, and i delete them.
 
+```{r}
+results_df =
+  read_csv("./gbb_datasets/results.csv", na = c("NA","","."), skip = 2) |>
+  janitor::clean_names() |>
+  mutate(series = as.character(series)) |>
+  mutate(episode = as.character(episode)) |>
+  mutate(baker = str_replace_all(baker, "Joanne","Jo")) |>
+  rename(name = baker)
+```
+I import the data through relative path, and clean the missing data. Then use janitor::clean_names() to clean up variable names. Then, I convert series and episode variables into character. Through the process of correctness, I found that "Jo" in backers_df and bakes_df is "Joanne" in results_df. So I replace all the "Joanne" in results_df with "Jo" to macth names in all datasets.
 
+## completeness & correctness
+```{r}
+bakers_not_in_bakes_df =
+  anti_join(bakers_df, bakes_df, by = c("name", "series"))
+backers_not_in_results_df =
+  anti_join(bakers_df, results_df, by = c("name", "series"))
+bakes_not_in_results_df = 
+  anti_join(bakes_df, results_df, by = c("name", "series"))
+```
+```{r}
+results_not_in_bakers_df = 
+  anti_join(results_df, bakers_df, by = c("name", "series"))
+```
+This helps me find that "Jo" in backers_df and bakes_df is "Joanne" in results_df.
+
+## merge data
+```{r}
+merged_df =
+  bakers_df |>
+  left_join(bakes_df, by = c("name", "series")) |>
+  left_join(results_df, by = c("name", "series", "episode"))
+```
+
+There are 573 observation in the merged_df, containing 11 variables including key variables like names, occupation, series, episode, age, signature_bake, result, etc. 
+
+## table
+```{r}
+winner_bakers_df = 
+  merged_df |>
+  filter(series >= 5) |>
+  filter(result %in% c("WINNER", "STAR BAKER")) |>
+  select (name, series, episode, result)
+```
+Candice and Nadiya are predictable overall winners as they thave won star bakers several times before the final winner. Nancy is surprising as she only won one star bakers before. Another impressive person is Rechard as he wone five star bakers but did not won the winner.
+
+## import viewer
+```{r}
+viewer_df=
+  read_csv("./gbb_datasets/viewers.csv", na = c("NA","",".")) |>
+  janitor::clean_names() |>
+  pivot_longer(
+    series_1:series_10,
+    names_to = "series",
+    values_to = "viewship"
+  ) |>
+  arrange(series) |>
+  head(10)
+```
+
+```{r}
+viewers_df=
+  read_csv("./gbb_datasets/viewers.csv", na = c("NA","",".")) |>
+  janitor::clean_names()
+mean(pull(viewers_df,"series_1"), na.rm = TRUE)
+mean(pull(viewers_df,"series_5"),na.rm = TRUE)
+```
+The average viewership in season 1 is 2.77.
+The average viewership in season 1 is 10.0393.
